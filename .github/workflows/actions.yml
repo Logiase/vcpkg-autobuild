@@ -1,39 +1,81 @@
-# actions.yaml
-#
-# In this example, vcpkg has been added as a submodule (`git submodule add https://github.com/Microsoft/vcpkg`).
-env:
-  VCPKG_BINARY_SOURCES: "clear;nuget,GitHub,readwrite"
+name: vcpkg auto build
+on:
+  workflow_dispatch:
 
-matrix:
-  os: ["windows-2019", "ubuntu-20.04"]
-  include:
-    - os: "windows-2019"
-      triplet: "x64-windows"
-      mono: ""
-  #   - os: 'ubuntu-20.04'
-  #     triplet: 'x64-linux'
-  #     # To run `nuget.exe` on non-Windows platforms, we must use `mono`.
-  #     mono: 'mono'
+jobs:
+  job:
+    name: ${{ matrix.os }}-${{ github.workflow }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest]
+        include:
+          - os: "windows-latest"
+            triplet: "x64-windows"
+            mono: ""
 
-steps:
-  # This step assumes `vcpkg` has been bootstrapped (run `./vcpkg/bootstrap-vcpkg`)
-  - name: "Setup NuGet Credentials"
-    shell: "bash"
-    # Replace Logiase with your organization name
-    run: |
-      ${{ matrix.mono }} `./vcpkg/vcpkg fetch nuget | tail -n 1` \
-        sources add \
-        -source "https://nuget.pkg.github.com/Logiase/index.json" \
-        -storepasswordincleartext \
-        -name "GitHub" \
-        -username "Logiase" \
-        -password "${{ secrets.GITHUB_TOKEN }}"
-      ${{ matrix.mono }} `./vcpkg/vcpkg fetch nuget | tail -n 1` \
-        setapikey "${{ secrets.GITHUB_TOKEN }}" \
-        -source "https://nuget.pkg.github.com/Logiase/index.json"
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg/bincache
+      VCPKG_BINARY_SOURCES: "clear;nuget,GitHub,readwrite;x-gha,readwrite"
 
-  # Omit this step if you're using manifests
-  - name: "vcpkg package restore"
-    shell: "bash"
-    run: >
-      ./vcpkg/vcpkg install opencv[contrib] azure-kinect-sensor-sdk --triplet ${{ matrix.triplet }}
+    steps:
+      # Set env vars needed for vcpkg to leverage the GitHub Action cache as a storage
+      # for Binary Caching.
+      - uses: actions/github-script@v6
+        with:
+          script: |
+            core.exportVariable('ACTIONS_CACHE_URL', process.env.ACTIONS_CACHE_URL || '');
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env.ACTIONS_RUNTIME_TOKEN || '');
+
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: "Create directory '${{ env.VCPKG_DEFAULT_BINARY_CACHE }}'"
+        run: mkdir -p $VCPKG_DEFAULT_BINARY_CACHE
+        shell: bash
+
+      # Setup the build machine with the most recent versions of CMake and Ninja. Both are cached if not already: on subsequent runs both will be quickly restored from GitHub cache service.
+      - uses: lukka/get-cmake@latest
+
+      # # Restore vcpkg from the GitHub Action cache service. Note that packages are restored by vcpkg's binary caching
+      # # when it is being run afterwards by CMake.
+      # - name: Restore vcpkg
+      #   uses: actions/cache@v3
+      #   with:
+      #     # The first path is the location of vcpkg: it contains the vcpkg executable and data files, as long as the
+      #     # built package archives (aka binary cache) which are located by VCPKG_DEFAULT_BINARY_CACHE env var.
+      #     # The other paths starting with '!' are exclusions: they contain termporary files generated during the build of the installed packages.
+      #     path: |
+      #       ${{ env.VCPKG_ROOT }}
+      #       !${{ env.VCPKG_ROOT }}/buildtrees
+      #       !${{ env.VCPKG_ROOT }}/packages
+      #       !${{ env.VCPKG_ROOT }}/downloads
+      #       !${{ env.VCPKG_ROOT }}/installed
+      #     # The key is composed in a way that it gets properly invalidated whenever a different version of vcpkg is being used.
+      #     key: |
+      #       ${{ hashFiles( '.git/modules/vcpkg/HEAD' )}}
+
+      # # On Windows runners, let's ensure to have the Developer Command Prompt environment setup correctly.
+      # # As used here the Developer Command Prompt created is targeting x64 and using the default the Windows SDK.
+      # - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Setup NuGet Credentials
+        shell: bash
+        run: |
+          ${{ matrix.mono }} `./vcpkg/vcpkg fetch nuget | tail -n 1` \
+            sources add \
+            -source "https://nuget.pkg.github.com/Logiase/index.json" \
+            -storepasswordincleartext \
+            -name "GitHub" \
+            -username "Logiase" \
+            -password "${{ secrets.GITHUB_TOKEN }}"
+          ${{ matrix.mono }} `./vcpkg/vcpkg fetch nuget | tail -n 1` \
+            setapikey "${{ secrets.GITHUB_TOKEN }}" \
+            -source "https://nuget.pkg.github.com/Logiase/index.json"
+
+      - name: vcpkg package restore
+        shell: bash
+        run: >
+          ./vcpkg/vcpkg install opencv[contrib] azure-kinect-sensor-sdk --triplet ${{ matrix.triplet }}
