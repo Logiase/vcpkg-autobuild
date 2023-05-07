@@ -61,6 +61,11 @@ jobs:
       # As used here the Developer Command Prompt created is targeting x64 and using the default the Windows SDK.
       - uses: ilammy/msvc-dev-cmd@v1
 
+      - name: vcpkg bootstrap
+        shell: bash
+        run: >
+          powershell.exe -NoProfile -ExecutionPolicy Bypass ./vcpkg/scripts/bootstrap.ps1
+
       - name: Setup NuGet Credentials
         shell: bash
         run: |
