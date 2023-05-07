@@ -71,14 +71,11 @@ jobs:
         run: |
           ${{ matrix.mono }} `./vcpkg/vcpkg fetch nuget | tail -n 1` \
             sources add \
-            -source "https://nuget.pkg.github.com/Logiase/index.json" \
-            -storepasswordincleartext \
-            -name "GitHub" \
-            -username "Logiase" \
-            -password "${{ secrets.GITHUB_TOKEN }}"
-          ${{ matrix.mono }} `./vcpkg/vcpkg fetch nuget | tail -n 1` \
-            setapikey "${{ secrets.GITHUB_TOKEN }}" \
-            -source "https://nuget.pkg.github.com/Logiase/index.json"
+            -Source "https://nuget.pkg.github.com/Logiase/index.json" \
+            -StorePasswordInClearText \
+            -Name "GitHub" \
+            -Username "Logiase" \
+            -Password "${{ secrets.GITHUB_TOKEN }}"
 
       - name: vcpkg package restore
         shell: bash
