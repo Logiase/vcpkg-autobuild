@@ -83,4 +83,4 @@ jobs:
       - name: vcpkg package restore
         shell: bash
         run: >
-          ./vcpkg/vcpkg install --debug opencv[contrib] azure-kinect-sensor-sdk --triplet ${{ matrix.triplet }}
+          ./vcpkg/vcpkg install opencv[contrib] azure-kinect-sensor-sdk --triplet ${{ matrix.triplet }}
