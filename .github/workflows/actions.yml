@@ -18,7 +18,7 @@ jobs:
     env:
       VCPKG_ROOT: ${{ github.workspace }}/vcpkg
       VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/vcpkg/bincache
-      VCPKG_BINARY_SOURCES: "clear;nuget,GitHub,readwrite;x-gha,readwrite"
+      VCPKG_BINARY_SOURCES: "clear;nuget,GitHub,readwrite"
 
     steps:
       # Set env vars needed for vcpkg to leverage the GitHub Action cache as a storage
@@ -76,8 +76,11 @@ jobs:
             -Name "GitHub" \
             -Username "Logiase" \
             -Password "${{ secrets.GITHUB_TOKEN }}"
+          ${{ matrix.mono }} `./vcpkg/vcpkg fetch nuget | tail -n 1` \
+            setapikey "${{ secrets.GITHUB_TOKEN }}" \
+            -source "https://nuget.pkg.github.com/Logiase/index.json"
 
       - name: vcpkg package restore
         shell: bash
         run: >
-          ./vcpkg/vcpkg install opencv[contrib] azure-kinect-sensor-sdk --triplet ${{ matrix.triplet }}
+          ./vcpkg/vcpkg install --debug opencv[contrib] azure-kinect-sensor-sdk --triplet ${{ matrix.triplet }}
